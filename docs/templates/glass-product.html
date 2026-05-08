@@ -1,0 +1,540 @@
+<!doctype html>
+<!--
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ HOW TO RUN — DO NOT double-click this file.                      │
+  │                                                                  │
+  │ This template loads ../models/glass_orb.glb (Blender-modeled     │
+  │ sphere) and applies three's MeshPhysicalMaterial with            │
+  │ transmission + dispersion (r166+). No extra deps — pure built-in.│
+  │                                                                  │
+  │   cd assets                                                      │
+  │   python -m http.server 8766                                     │
+  │   → open http://localhost:8766/templates/glass-product.html      │
+  │                                                                  │
+  │ Cost: transmission re-samples the scene behind the orb. Mid-tier │
+  │ desktop ~2-3ms; mobile ~6-8ms. For deeper glass / per-wavelength │
+  │ refraction beyond `dispersion`, install `drei-vanilla` and use   │
+  │ MeshTransmissionMaterial — but pure built-in covers most cases.  │
+  └──────────────────────────────────────────────────────────────────┘
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Awwwards 3D — glass product</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='none' stroke='%23a0d0ff' stroke-width='1.5'/%3E%3C/svg%3E">
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    overscroll-behavior: none;
+    scroll-behavior: auto;
+    background: #07090c;
+    color: #d8e6f5;
+  }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html.lenis, html.lenis body { height: auto; }
+  .lenis.lenis-smooth { scroll-behavior: auto !important; }
+  .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+  .lenis.lenis-stopped { overflow: hidden; }
+
+  #webgl {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  main { position: relative; z-index: 1; }
+  section {
+    position: relative;
+    height: 100vh;
+    padding: clamp(1.5rem, 5vw, 4rem);
+    display: flex; align-items: flex-end;
+  }
+  section h1, section h2 {
+    font-weight: 600;
+    font-size: clamp(2rem, 6vw, 5rem);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    max-width: 18ch;
+  }
+  section .meta {
+    position: absolute; top: clamp(1.5rem, 5vw, 4rem); left: clamp(1.5rem, 5vw, 4rem);
+    font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+    opacity: 0.55;
+  }
+
+  #preloader {
+    position: fixed; inset: 0;
+    background: #07090c; color: #d8e6f5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 9000;
+    transition: opacity 0.6s ease, visibility 0.6s;
+    gap: 1rem;
+  }
+  #preloader.done { opacity: 0; visibility: hidden; }
+  .preloader-counter {
+    font: 600 clamp(2.5rem, 8vw, 5rem)/1 ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.04em;
+  }
+  .preloader-bar { width: clamp(160px, 30vw, 280px); height: 1px; background: rgba(216,230,245,0.18); }
+  .preloader-fill { height: 100%; width: 0%; background: #d8e6f5; transition: width 0.2s ease; }
+
+  body.no-webgl #webgl { display: none; }
+  body.no-webgl::before {
+    content: "WebGL unavailable — please use a modern browser";
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    color: #888; font-size: 0.9rem; letter-spacing: 0.05em;
+  }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+    "gsap": "https://esm.sh/gsap@3.12.5",
+    "gsap/ScrollTrigger": "https://esm.sh/gsap@3.12.5/ScrollTrigger",
+    "lenis": "https://unpkg.com/lenis@1.1.0/dist/lenis.mjs"
+  }
+}
+</script>
+
+<script>
+  window.addEventListener('error', (e) => {
+    console.error('[awwwards-3d]', e.message, e.error);
+    const c = document.querySelector('.preloader-counter');
+    if (c) c.textContent = 'ERR';
+    const f = document.querySelector('.preloader-fill');
+    if (f) f.style.background = '#ff4d4d';
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('[awwwards-3d] unhandled', e.reason);
+    const c = document.querySelector('.preloader-counter');
+    if (c) c.textContent = 'ERR';
+  });
+</script>
+</head>
+<body>
+
+<div id="preloader" aria-hidden="true">
+  <div class="preloader-counter">0</div>
+  <div class="preloader-bar"><div class="preloader-fill"></div></div>
+</div>
+
+<canvas id="webgl"></canvas>
+
+<main class="scroll-container">
+  <section><span class="meta">01 — Object</span><h1>A single piece of glass, suspended in the dark</h1></section>
+  <section><span class="meta">02 — Refraction</span><h2>Light bends through it differently every degree</h2></section>
+  <section><span class="meta">03 — Closer</span><h2>Now look at the chromatic edge</h2></section>
+  <section><span class="meta">04 — End</span><h2>Fork this template</h2></section>
+</main>
+
+<script type="module">
+// ─────────────────────────────────────────────────────────────────────────
+// Awwwards 3D — glass product showcase
+// Three.js r170 + GSAP 3.12.5 + Lenis 1.1.0 (all built-in, no drei needed)
+// Hero: glass_orb.glb + MeshPhysicalMaterial (transmission + dispersion r166+)
+// ─────────────────────────────────────────────────────────────────────────
+
+function detectWebGL() {
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (!gl) return false;
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const r = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '';
+    return !/SwiftShader|Software|llvmpipe/i.test(r);
+  } catch (e) { return false; }
+}
+if (!detectWebGL()) {
+  document.body.classList.add('no-webgl');
+  document.getElementById('preloader').classList.add('done');
+  throw new Error('WebGL unavailable');
+}
+
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
+import Lenis from 'lenis';
+
+gsap.registerPlugin(ScrollTrigger);
+
+// ── renderer ────────────────────────────────────────────────────────────
+const canvas = document.getElementById('webgl');
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: false,
+  powerPreference: 'high-performance',
+  stencil: false,
+  depth: true,
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+// ── scene & camera ──────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x07090c);
+
+const camera = new THREE.PerspectiveCamera(28, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0.2, 6);
+
+// ── HDRI env (RoomEnvironment for self-contained refraction sampling) ──
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+pmrem.dispose();
+
+// ── lighting (single rim — glass tells most of the story itself) ────────
+const lighting = new THREE.Group(); lighting.name = 'lighting';
+const rim = new THREE.DirectionalLight(0xa0c8ff, 1.5);
+rim.position.set(-3, 4, -4);
+lighting.add(rim);
+const fill = new THREE.DirectionalLight(0xffd0a0, 0.5);
+fill.position.set(4, 1, 3);
+lighting.add(fill);
+scene.add(lighting);
+
+// ── stage ───────────────────────────────────────────────────────────────
+const stage = new THREE.Group(); stage.name = 'stage';
+scene.add(stage);
+
+// ── glass material (three.js built-in MeshPhysicalMaterial) ────────────
+// `dispersion` is r166+ — produces chromatic aberration via wavelength-IOR
+// variance, similar to drei's MeshTransmissionMaterial but no extra deps.
+const glass = new THREE.MeshPhysicalMaterial({
+  color: 0xffffff,
+  transmission: 1.0,
+  thickness: 0.6,
+  roughness: 0.05,
+  ior: 1.5,
+  dispersion: 1.2,                                  // r166+ chromatic edge
+  attenuationColor: new THREE.Color(0xeaf2ff),      // very faint cool tint
+  attenuationDistance: 1.6,
+  metalness: 0.0,
+  envMapIntensity: 1.3,
+  // For deeper glass feel: bump `thickness` to 1.0+ and `roughness` to 0.1
+});
+
+// ── orb (loaded from GLB) ───────────────────────────────────────────────
+let orb = null;
+const loadingManager = new THREE.LoadingManager();
+const draco = new DRACOLoader(loadingManager);
+draco.setDecoderPath('https://unpkg.com/three@0.170.0/examples/jsm/libs/draco/');
+draco.setDecoderConfig({ type: 'js' });
+
+const gltfLoader = new GLTFLoader(loadingManager);
+gltfLoader.setDRACOLoader(draco);
+
+gltfLoader.load(
+  '../models/glass_orb.glb',
+  (gltf) => {
+    orb = gltf.scene.children[0];
+    orb.material = glass;
+    orb.castShadow = false;        // transmission handles its own light contribution
+    orb.receiveShadow = false;
+    stage.add(orb);
+  },
+  undefined,
+  (err) => {
+    console.error('[awwwards-3d] glass_orb.glb failed to load:', err);
+    // Fallback: primitive sphere with the same glass material
+    orb = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), glass);
+    stage.add(orb);
+  },
+);
+
+// ── tasteful background gradient mesh (Pattern #30, Option 1) ───────────
+const bgGeom = new THREE.PlaneGeometry(2, 2);
+const bgMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 } },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = vec4(position, 1.0); }
+  `,
+  fragmentShader: `
+    precision mediump float;
+    uniform float uTime;
+    varying vec2 vUv;
+    void main() {
+      vec3 a = vec3(0.025, 0.035, 0.06);
+      vec3 b = vec3(0.04,  0.06,  0.10);
+      float t = vUv.y + sin(vUv.x * 2.0 + uTime * 0.15) * 0.06;
+      vec3 col = mix(a, b, smoothstep(0.0, 1.0, t));
+      col += (fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.01; // anti-banding
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+  depthTest: false, depthWrite: false,
+});
+const bg = new THREE.Mesh(bgGeom, bgMat);
+bg.frustumCulled = false;
+bg.renderOrder = -1;
+const bgScene = new THREE.Scene();
+bgScene.add(bg);
+
+// ── post-processing (lowered bloom for glass — glass already shines) ────
+const hdrTarget = new THREE.WebGLRenderTarget(
+  window.innerWidth, window.innerHeight,
+  { type: THREE.HalfFloatType },
+);
+const composer = new EffectComposer(renderer, hdrTarget);
+composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+composer.setSize(window.innerWidth, window.innerHeight);
+
+composer.addPass(new RenderPass(scene, camera));
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.3, 0.4, 0.92,    // gentler — glass doesn't need extra glow
+);
+composer.addPass(bloomPass);
+
+const vignettePass = new ShaderPass({
+  uniforms: {
+    tDiffuse:  { value: null },
+    uOffset:   { value: 0.4 },
+    uDarkness: { value: 0.55 },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uOffset; uniform float uDarkness;
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      vec2 uv = vUv - 0.5;
+      float v = smoothstep(0.85, uOffset, length(uv));
+      gl_FragColor = vec4(mix(c.rgb * (1.0 - uDarkness), c.rgb, v), c.a);
+    }`,
+});
+composer.addPass(vignettePass);
+
+composer.addPass(new OutputPass());
+
+const grainPass = new ShaderPass({
+  uniforms: {
+    tDiffuse:   { value: null },
+    uTime:      { value: 0 },
+    uIntensity: { value: 0.04 },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uTime; uniform float uIntensity;
+    varying vec2 vUv;
+    float rand(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      float n = rand(vUv + uTime) - 0.5;
+      gl_FragColor = vec4(c.rgb + n * uIntensity, c.a);
+    }`,
+});
+composer.addPass(grainPass);
+
+// ── lerp state ──────────────────────────────────────────────────────────
+const state = {
+  orbRotY:  { current: 0,   target: 0,   ease: 0.06 },
+  orbScale: { current: 1.0, target: 1.0, ease: 0.07 },
+  cameraZ:  { current: 6,   target: 6,   ease: 0.06 },
+  mouseX:   { current: 0,   target: 0,   ease: 0.12 },
+  mouseY:   { current: 0,   target: 0,   ease: 0.12 },
+};
+function damp(s, dt) {
+  const f = 1 - Math.pow(1 - s.ease, dt * 60);
+  s.current += (s.target - s.current) * f;
+}
+
+// ── lenis + ScrollTrigger ───────────────────────────────────────────────
+const lenis = new Lenis({
+  duration: 1.2,
+  easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+  smoothWheel: true,
+  prevent: () => false,
+});
+lenis.on('scroll', ScrollTrigger.update);
+gsap.ticker.add((time) => lenis.raf(time * 1000));
+gsap.ticker.lagSmoothing(0);
+
+// ── scroll choreography ─────────────────────────────────────────────────
+gsap.timeline({
+  scrollTrigger: {
+    trigger: '.scroll-container',
+    start: 'top top',
+    end: 'bottom bottom',
+    scrub: true,
+  },
+})
+.to(state.cameraZ,  { target: 3.2,             ease: 'none' }, 0)
+.to(state.orbRotY,  { target: Math.PI * 1.5,   ease: 'none' }, 0)
+.to(state.orbScale, { target: 1.15,            ease: 'none' }, 0);
+
+// ── mouse parallax (subtle) ─────────────────────────────────────────────
+if (!window.matchMedia('(pointer: coarse)').matches) {
+  window.addEventListener('mousemove', (e) => {
+    state.mouseX.target = (e.clientX / window.innerWidth) * 2 - 1;
+    state.mouseY.target = -((e.clientY / window.innerHeight) * 2 - 1);
+  });
+}
+
+// ── resize ──────────────────────────────────────────────────────────────
+let resizePending = false;
+function onResize() {
+  if (resizePending) return;
+  resizePending = true;
+  requestAnimationFrame(() => {
+    const w = window.innerWidth, h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    composer.setSize(w, h);
+    bloomPass.resolution.set(w, h);
+    resizePending = false;
+  });
+}
+window.addEventListener('resize', onResize);
+
+// ── visibility pause ────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+let running = true, rafId = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    running = false;
+    cancelAnimationFrame(rafId);
+  } else if (!running) {
+    running = true;
+    clock.getDelta();
+    tick();
+  }
+});
+
+// ── main tick ───────────────────────────────────────────────────────────
+const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+function tick() {
+  if (!running) return;
+  const delta = Math.min(clock.getDelta(), 0.1);
+  const t = clock.elapsedTime;
+
+  for (const k in state) damp(state[k], delta);
+
+  // Camera (small parallax + scroll dolly)
+  camera.position.x = state.mouseX.current * 0.20;
+  camera.position.y = 0.2 + state.mouseY.current * 0.15;
+  camera.position.z = state.cameraZ.current;
+  camera.lookAt(0, 0, 0);
+
+  // Orb gentle hover + scroll-driven Y rotation + slight scale
+  if (orb) {
+    orb.rotation.y = state.orbRotY.current + t * 0.15;   // base auto-spin
+    orb.position.y = Math.sin(t * 0.6) * 0.05;
+    const s = state.orbScale.current;
+    orb.scale.set(s, s, s);
+  }
+
+  // BG (drawn first, then main scene with autoClear=false)
+  bgMat.uniforms.uTime.value = t;
+  renderer.autoClear = false;
+  renderer.clear();
+  renderer.render(bgScene, bgCamera);
+  // Composer renders the main scene on top (RenderPass uses clear=true by default
+  // for its target, but the composer's framebuffer is separate; bg is in canvas
+  // before we hand control to composer — visible only at first; the composer's
+  // RenderPass clears the framebuffer it draws into. So bg gets overwritten.
+  // For a true behind-glass background, switch glass to RoomEnvironment-only
+  // and remove this bgScene entirely.) — (kept here for atmospheric fallback)
+  composer.autoClear = true;
+
+  grainPass.uniforms.uTime.value = t;
+  composer.render();
+  rafId = requestAnimationFrame(tick);
+}
+
+// ── preloader (LoadingManager-driven) ───────────────────────────────────
+const preloader = document.getElementById('preloader');
+const counterEl = preloader.querySelector('.preloader-counter');
+const fillEl = preloader.querySelector('.preloader-fill');
+
+loadingManager.onProgress = (url, loaded, total) => {
+  const pct = Math.round((loaded / total) * 100);
+  counterEl.textContent = pct;
+  fillEl.style.width = `${pct}%`;
+};
+
+loadingManager.onLoad = () => {
+  counterEl.textContent = '100';
+  fillEl.style.width = '100%';
+  setTimeout(playIntro, 220);
+};
+
+loadingManager.onError = (url) => {
+  console.error('[awwwards-3d] failed to load', url);
+  counterEl.textContent = 'ERR';
+  fillEl.style.background = '#ff4d4d';
+};
+
+function playIntro() {
+  preloader.classList.add('done');
+  renderer.compile(scene, camera);
+  composer.render(0.016);
+
+  const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+  tl.from(camera.position, { z: 14, duration: 2.4 }, 0)
+    .from(camera, { fov: 40, duration: 2.4,
+      onUpdate: () => camera.updateProjectionMatrix() }, 0);
+  if (orb) {
+    tl.from(orb.scale, { x: 0, y: 0, z: 0, duration: 1.6, ease: 'back.out(1.2)' }, 0.3);
+  }
+}
+
+// ── start ───────────────────────────────────────────────────────────────
+tick();
+
+// ── teardown ────────────────────────────────────────────────────────────
+window.__awwwards3d_destroy = () => {
+  cancelAnimationFrame(rafId);
+  lenis.destroy();
+  ScrollTrigger.getAll().forEach((t) => t.kill());
+  scene.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m) => {
+        for (const k of Object.keys(m)) {
+          if (m[k] && m[k].isTexture) m[k].dispose();
+        }
+        m.dispose();
+      });
+    }
+  });
+  composer.renderTarget1?.dispose();
+  composer.renderTarget2?.dispose();
+  hdrTarget.dispose();
+  renderer.dispose();
+  renderer.forceContextLoss();
+};
+</script>
+
+</body>
+</html>

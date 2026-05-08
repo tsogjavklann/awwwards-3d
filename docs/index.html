@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>awwwards-3d — live templates</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23ffd271'/%3E%3C/svg%3E">
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: #0a0a0e;
+    color: #e8e8ec;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 5rem);
+  }
+
+  header { margin-bottom: clamp(2.5rem, 6vw, 4rem); }
+  h1 {
+    font: 600 clamp(2rem, 5vw, 4rem)/0.98 ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.045em;
+    margin-bottom: 1rem;
+  }
+  .lede {
+    font-size: clamp(0.95rem, 1.4vw, 1.1rem);
+    line-height: 1.55;
+    max-width: 60ch;
+    color: #b8b8c4;
+  }
+  .lede a { color: #ffd271; text-decoration: none; border-bottom: 1px solid rgba(255,210,113,0.4); }
+  .lede a:hover { border-bottom-color: rgba(255,210,113,1); }
+
+  .grid {
+    display: grid;
+    gap: clamp(1rem, 2vw, 1.5rem);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  }
+
+  .card {
+    display: block;
+    background: #15151c;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1),
+                border-color 0.3s,
+                background 0.3s;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255,255,255,0.15);
+    background: #1a1a22;
+  }
+
+  .card-img {
+    aspect-ratio: 16 / 10;
+    background: #07090c;
+    overflow: hidden;
+  }
+  .card-img img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .card:hover .card-img img { transform: scale(1.04); }
+
+  .card-body { padding: clamp(1rem, 1.8vw, 1.5rem); }
+  .card-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.4rem;
+  }
+  .card-desc {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #a2a2af;
+  }
+  .card-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #ffd271;
+    margin-bottom: 0.6rem;
+  }
+
+  footer {
+    margin-top: clamp(3rem, 8vw, 6rem);
+    padding-top: clamp(1.5rem, 3vw, 2rem);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    color: #7a7a87;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+  footer a { color: #b8b8c4; text-decoration: none; border-bottom: 1px solid rgba(184,184,196,0.3); }
+  footer a:hover { color: #ffd271; border-bottom-color: rgba(255,210,113,1); }
+</style>
+
+</head>
+<body>
+
+<main>
+  <header>
+    <h1>awwwards-3d</h1>
+    <p class="lede">
+      A Claude Code skill for building Awwwards-style scroll-driven 3D websites.
+      <strong>Three.js r170</strong> + <strong>GSAP 3.12.5</strong> + <strong>Lenis 1.1</strong> + three's built-in <code>EffectComposer</code>.
+      Four verified templates, 33 documented patterns, and Blender MCP recipes that actually run end-to-end.
+      <a href="https://github.com/tsogjavklann/awwwards-3d">View on GitHub →</a>
+    </p>
+  </header>
+
+  <div class="grid">
+
+    <a class="card" href="templates/minimal.html">
+      <div class="card-img"><img src="screenshots/minimal-hero.png" alt="minimal foundation"></div>
+      <div class="card-body">
+        <span class="card-tag">01 — Foundation</span>
+        <div class="card-name">minimal.html</div>
+        <div class="card-desc">
+          Empty scene with the canonical lerp + scroll + composer chain wired up.
+          Chrome icosahedron, ACES tone mapping, bloom, vignette, grain.
+        </div>
+      </div>
+    </a>
+
+    <a class="card" href="templates/coin-scroll.html">
+      <div class="card-img"><img src="screenshots/coin-hero.png" alt="coin scroll"></div>
+      <div class="card-body">
+        <span class="card-tag">02 — Object showcase</span>
+        <div class="card-name">coin-scroll.html</div>
+        <div class="card-desc">
+          Gold coin tumbles + falls + drifts on scroll. Loads <code>coin.glb</code>
+          via DRACOLoader (6 KB Draco-compressed from Blender).
+        </div>
+      </div>
+    </a>
+
+    <a class="card" href="templates/room-walkthrough.html">
+      <div class="card-img"><img src="screenshots/room-hero.png" alt="room walkthrough"></div>
+      <div class="card-body">
+        <span class="card-tag">03 — Spline camera</span>
+        <div class="card-name">room-walkthrough.html</div>
+        <div class="card-desc">
+          Camera follows a CatmullRomCurve3 path through a low-poly interior.
+          Painting + hero orb + warm lamp + cool window light.
+        </div>
+      </div>
+    </a>
+
+    <a class="card" href="templates/glass-product.html">
+      <div class="card-img"><img src="screenshots/glass-hero.png" alt="glass product"></div>
+      <div class="card-body">
+        <span class="card-tag">04 — Glass</span>
+        <div class="card-name">glass-product.html</div>
+        <div class="card-desc">
+          Hero orb with <code>MeshPhysicalMaterial</code> transmission +
+          dispersion (r166+ chromatic refraction). No drei dependency.
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  <footer>
+    <p>
+      MIT licensed. Built with <a href="https://threejs.org">Three.js</a>,
+      <a href="https://gsap.com">GSAP</a>, <a href="https://lenis.darkroom.engineering">Lenis</a>,
+      and <a href="https://www.blender.org">Blender 5.1.1</a> via
+      <a href="https://github.com/ahujasid/blender-mcp">blender-mcp</a>.
+      Inspired by the work of <a href="https://activetheory.net">Active Theory</a>,
+      <a href="https://lusion.co">Lusion</a>, <a href="https://14islands.com">14islands</a>,
+      <a href="https://bonhomme.lol">Bonhomme</a>, <a href="https://resn.co.nz">Resn</a>,
+      <a href="https://studiofreight.com">Studio Freight</a>,
+      <a href="https://locomotive.ca">Locomotive</a>, and <a href="https://igloo.inc">Igloo Inc.</a>
+    </p>
+  </footer>
+
+</main>
+
+</body>
+</html>

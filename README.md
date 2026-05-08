@@ -4,6 +4,29 @@ A Claude Code skill for building **Awwwards-style scroll-driven 3D websites** in
 
 Stack: **Three.js r170** + **GSAP 3.12.5** (ScrollTrigger) + **Lenis 1.1** + three's built-in `EffectComposer`. Single-file HTML deliverables by default; Vite scaffold optional.
 
+## The four templates
+
+<table>
+<tr>
+<td width="50%"><b>minimal.html</b><br><sub>Foundation — chrome icosahedron, full polish chain (HDR composer, ACES, bloom, vignette, grain, Lenis-driven scroll camera).</sub></td>
+<td width="50%"><b>coin-scroll.html</b><br><sub>Gold coin tumbles + falls on scroll. Loads <code>coin.glb</code> via DRACOLoader. Object-showcase archetype.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/minimal-hero.png" alt="minimal.html"></td>
+<td><img src="docs/screenshots/coin-hero.png" alt="coin-scroll.html"></td>
+</tr>
+<tr>
+<td><b>room-walkthrough.html</b><br><sub>Camera follows a CatmullRomCurve3 spline through a low-poly interior. Loads <code>room.glb</code>. Spline-camera archetype.</sub></td>
+<td><b>glass-product.html</b><br><sub>Glass orb with <code>MeshPhysicalMaterial</code> transmission + dispersion (r166+). Loads <code>glass_orb.glb</code>. No drei dependency.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/room-hero.png" alt="room-walkthrough.html"></td>
+<td><img src="docs/screenshots/glass-hero.png" alt="glass-product.html"></td>
+</tr>
+</table>
+
+> 🌐 **Live demos:** [tsogjavklann.github.io/awwwards-3d](https://tsogjavklann.github.io/awwwards-3d/) (deployed from `/docs`)
+
 ---
 
 ## What's inside
