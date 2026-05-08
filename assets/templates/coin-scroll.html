@@ -1,0 +1,534 @@
+<!doctype html>
+<!--
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ HOW TO RUN — DO NOT double-click this file.                      │
+  │                                                                  │
+  │ This template loads ../models/coin.glb (Blender-modeled coin).   │
+  │ Serve from the parent assets/ folder so both templates/ and      │
+  │ models/ are accessible:                                          │
+  │                                                                  │
+  │   cd assets                                                      │
+  │   python -m http.server 8766                                     │
+  │   → open http://localhost:8766/templates/coin-scroll.html        │
+  │                                                                  │
+  │ The GLB is Draco-compressed (6 KB). DRACOLoader uses the         │
+  │ unpkg-hosted decoder bundled with three@0.170.0.                 │
+  └──────────────────────────────────────────────────────────────────┘
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Awwwards 3D — coin scroll</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23ffd271'/%3E%3C/svg%3E">
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    overscroll-behavior: none;
+    scroll-behavior: auto;
+    background: #0c0a08;
+    color: #f5e8c4;
+  }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html.lenis, html.lenis body { height: auto; }
+  .lenis.lenis-smooth { scroll-behavior: auto !important; }
+  .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+  .lenis.lenis-stopped { overflow: hidden; }
+
+  #webgl {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  main { position: relative; z-index: 1; }
+  section {
+    position: relative;
+    height: 100vh;
+    padding: clamp(1.5rem, 5vw, 4rem);
+    display: flex; align-items: flex-end;
+  }
+  section h1, section h2 {
+    font-weight: 600;
+    font-size: clamp(2rem, 6vw, 5rem);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    max-width: 18ch;
+  }
+  section .meta {
+    position: absolute; top: clamp(1.5rem, 5vw, 4rem); left: clamp(1.5rem, 5vw, 4rem);
+    font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+    opacity: 0.65;
+  }
+
+  #preloader {
+    position: fixed; inset: 0;
+    background: #0c0a08; color: #f5e8c4;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 9000;
+    transition: opacity 0.6s ease, visibility 0.6s;
+    gap: 1rem;
+  }
+  #preloader.done { opacity: 0; visibility: hidden; }
+  .preloader-counter {
+    font: 600 clamp(2.5rem, 8vw, 5rem)/1 ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.04em;
+  }
+  .preloader-bar { width: clamp(160px, 30vw, 280px); height: 1px; background: rgba(245,232,196,0.18); }
+  .preloader-fill { height: 100%; width: 0%; background: #f5e8c4; transition: width 0.2s ease; }
+
+  body.no-webgl #webgl { display: none; }
+  body.no-webgl::before {
+    content: "WebGL unavailable — please use a modern browser";
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    color: #888; font-size: 0.9rem; letter-spacing: 0.05em;
+  }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+    "gsap": "https://esm.sh/gsap@3.12.5",
+    "gsap/ScrollTrigger": "https://esm.sh/gsap@3.12.5/ScrollTrigger",
+    "lenis": "https://unpkg.com/lenis@1.1.0/dist/lenis.mjs"
+  }
+}
+</script>
+
+<script>
+  window.addEventListener('error', (e) => {
+    console.error('[awwwards-3d]', e.message, e.error);
+    const c = document.querySelector('.preloader-counter');
+    if (c) c.textContent = 'ERR';
+    const f = document.querySelector('.preloader-fill');
+    if (f) f.style.background = '#ff4d4d';
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('[awwwards-3d] unhandled', e.reason);
+    const c = document.querySelector('.preloader-counter');
+    if (c) c.textContent = 'ERR';
+  });
+</script>
+</head>
+<body>
+
+<div id="preloader" aria-hidden="true">
+  <div class="preloader-counter">0</div>
+  <div class="preloader-bar"><div class="preloader-fill"></div></div>
+</div>
+
+<canvas id="webgl"></canvas>
+
+<main class="scroll-container">
+  <section><span class="meta">01 — Toss</span><h1>Heads or tails — let it fall</h1></section>
+  <section><span class="meta">02 — Tumble</span><h2>Each rotation catches the light differently</h2></section>
+  <section><span class="meta">03 — Land</span><h2>The coin remembers where it began</h2></section>
+  <section><span class="meta">04 — End</span><h2>Fork this template</h2></section>
+</main>
+
+<script type="module">
+// ─────────────────────────────────────────────────────────────────────────
+// Awwwards 3D — coin scroll template
+// Three.js r170 + GSAP 3.12.5 + Lenis 1.1.0 + three built-in EffectComposer
+// Hero: a gold coin that tumbles + falls + drifts as you scroll
+// ─────────────────────────────────────────────────────────────────────────
+
+function detectWebGL() {
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (!gl) return false;
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const r = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '';
+    return !/SwiftShader|Software|llvmpipe/i.test(r);
+  } catch (e) { return false; }
+}
+if (!detectWebGL()) {
+  document.body.classList.add('no-webgl');
+  document.getElementById('preloader').classList.add('done');
+  throw new Error('WebGL unavailable');
+}
+
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
+import Lenis from 'lenis';
+
+gsap.registerPlugin(ScrollTrigger);
+
+// ── renderer ────────────────────────────────────────────────────────────
+const canvas = document.getElementById('webgl');
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: false,
+  powerPreference: 'high-performance',
+  stencil: false,
+  depth: true,
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+
+// ── scene & camera ──────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0c0a08);
+scene.fog = new THREE.FogExp2(0x0c0a08, 0.04);
+
+const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0.4, 7);
+
+// ── environment ─────────────────────────────────────────────────────────
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+pmrem.dispose();
+
+// ── lighting (warm three-point — gold needs warm key) ───────────────────
+const lighting = new THREE.Group(); lighting.name = 'lighting';
+const key = new THREE.DirectionalLight(0xffe6b8, 1.6);
+key.position.set(4, 7, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.camera.near = 0.5;
+key.shadow.camera.far = 25;
+key.shadow.bias = -0.0001;
+key.shadow.radius = 6;
+const sd = 6;
+Object.assign(key.shadow.camera, { left: -sd, right: sd, top: sd, bottom: -sd });
+key.shadow.camera.updateProjectionMatrix();
+
+const fill = new THREE.DirectionalLight(0x6090ff, 0.35);
+fill.position.set(-5, 2, 3);
+
+const rim = new THREE.DirectionalLight(0xffffff, 0.7);
+rim.position.set(0, 4, -7);
+
+lighting.add(key, fill, rim);
+scene.add(lighting);
+
+// ── stage ───────────────────────────────────────────────────────────────
+const stage = new THREE.Group(); stage.name = 'stage';
+
+// Two-layer choreography: groupY drops, inner coin tumbles.
+const coinGroup = new THREE.Group();
+coinGroup.name = 'coinGroup';
+stage.add(coinGroup);
+
+// `coin` is populated by the GLB loader below. Until then, it's a placeholder.
+let coin = null;
+
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(20, 20),
+  new THREE.ShadowMaterial({ opacity: 0.45 }),
+);
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -3;
+floor.receiveShadow = true;
+stage.add(floor);
+
+scene.add(stage);
+
+// ── GLB loading ─────────────────────────────────────────────────────────
+const loadingManager = new THREE.LoadingManager();
+const draco = new DRACOLoader(loadingManager);
+draco.setDecoderPath('https://unpkg.com/three@0.170.0/examples/jsm/libs/draco/');
+draco.setDecoderConfig({ type: 'js' });
+
+const gltfLoader = new GLTFLoader(loadingManager);
+gltfLoader.setDRACOLoader(draco);
+
+gltfLoader.load(
+  '../models/coin.glb',
+  (gltf) => {
+    coin = gltf.scene.children[0];
+    coin.castShadow = true;
+    coin.receiveShadow = true;
+    // GLB exported with +Y up. Cylinder axis is Y → face points up. Rotate so
+    // face points at camera (the local Y becomes world Z).
+    coin.rotation.x = Math.PI / 2;
+    // Bump envMapIntensity for showcase brightness
+    coin.traverse((o) => {
+      if (o.isMesh && o.material) {
+        o.material.envMapIntensity = 1.4;
+      }
+    });
+    coinGroup.add(coin);
+  },
+  undefined,
+  (err) => {
+    console.error('[awwwards-3d] coin.glb failed to load:', err);
+    // Fallback: build a primitive coin so the page still renders something
+    const fallbackGeom = new THREE.CylinderGeometry(1.0, 1.0, 0.1, 96, 1);
+    const fallbackMat = new THREE.MeshStandardMaterial({
+      color: 0xffd271, metalness: 1.0, roughness: 0.18, envMapIntensity: 1.4,
+    });
+    coin = new THREE.Mesh(fallbackGeom, fallbackMat);
+    coin.castShadow = true;
+    coin.receiveShadow = true;
+    coin.rotation.x = Math.PI / 2;
+    coinGroup.add(coin);
+  },
+);
+
+// ── post-processing ─────────────────────────────────────────────────────
+const hdrTarget = new THREE.WebGLRenderTarget(
+  window.innerWidth, window.innerHeight,
+  { type: THREE.HalfFloatType },
+);
+const composer = new EffectComposer(renderer, hdrTarget);
+composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+composer.setSize(window.innerWidth, window.innerHeight);
+
+composer.addPass(new RenderPass(scene, camera));
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.55, 0.45, 0.78,    // gold metals catch a bit more bloom
+);
+composer.addPass(bloomPass);
+
+const vignettePass = new ShaderPass({
+  uniforms: {
+    tDiffuse:  { value: null },
+    uOffset:   { value: 0.45 },
+    uDarkness: { value: 0.6 },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uOffset; uniform float uDarkness;
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      vec2 uv = vUv - 0.5;
+      float v = smoothstep(0.8, uOffset, length(uv));
+      gl_FragColor = vec4(mix(c.rgb * (1.0 - uDarkness), c.rgb, v), c.a);
+    }`,
+});
+composer.addPass(vignettePass);
+
+composer.addPass(new OutputPass());
+
+const grainPass = new ShaderPass({
+  uniforms: {
+    tDiffuse:   { value: null },
+    uTime:      { value: 0 },
+    uIntensity: { value: 0.045 },
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uTime; uniform float uIntensity;
+    varying vec2 vUv;
+    float rand(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      float n = rand(vUv + uTime) - 0.5;
+      gl_FragColor = vec4(c.rgb + n * uIntensity, c.a);
+    }`,
+});
+composer.addPass(grainPass);
+
+// ── lerp state ──────────────────────────────────────────────────────────
+const state = {
+  groupY:     { current:  0,    target:  0,    ease: 0.07 },   // coin falls
+  groupX:     { current:  0,    target:  0,    ease: 0.08 },   // coin drifts
+  coinTumble: { current:  0,    target:  0,    ease: 0.08 },   // X-axis flip
+  coinSpin:   { current:  0,    target:  0,    ease: 0.10 },   // Y-axis (face) spin
+  cameraZ:    { current:  7,    target:  7,    ease: 0.06 },
+  mouseX:     { current:  0,    target:  0,    ease: 0.12 },
+  mouseY:     { current:  0,    target:  0,    ease: 0.12 },
+};
+function damp(s, dt) {
+  const f = 1 - Math.pow(1 - s.ease, dt * 60);
+  s.current += (s.target - s.current) * f;
+}
+
+// ── lenis + ScrollTrigger ───────────────────────────────────────────────
+const lenis = new Lenis({
+  duration: 1.2,
+  easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+  smoothWheel: true,
+  prevent: () => false,
+});
+lenis.on('scroll', ScrollTrigger.update);
+gsap.ticker.add((time) => lenis.raf(time * 1000));
+gsap.ticker.lagSmoothing(0);
+
+// ── scroll choreography ─────────────────────────────────────────────────
+gsap.timeline({
+  scrollTrigger: {
+    trigger: '.scroll-container',
+    start: 'top top',
+    end: 'bottom bottom',
+    scrub: true,
+  },
+})
+.to(state.groupY,     { target: -2.4,             ease: 'none' }, 0)
+.to(state.groupX,     { target:  1.0,             ease: 'none' }, 0)
+.to(state.coinTumble, { target:  Math.PI * 6,     ease: 'none' }, 0)   // 3 full flips
+.to(state.coinSpin,   { target:  Math.PI * 1.5,   ease: 'none' }, 0)   // 3/4 face spin
+.to(state.cameraZ,    { target:  5.5,             ease: 'none' }, 0);
+
+// ── mouse parallax ──────────────────────────────────────────────────────
+if (!window.matchMedia('(pointer: coarse)').matches) {
+  window.addEventListener('mousemove', (e) => {
+    state.mouseX.target = (e.clientX / window.innerWidth) * 2 - 1;
+    state.mouseY.target = -((e.clientY / window.innerHeight) * 2 - 1);
+  });
+}
+
+// ── resize ──────────────────────────────────────────────────────────────
+let resizePending = false;
+function onResize() {
+  if (resizePending) return;
+  resizePending = true;
+  requestAnimationFrame(() => {
+    const w = window.innerWidth, h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    composer.setSize(w, h);
+    bloomPass.resolution.set(w, h);
+    resizePending = false;
+  });
+}
+window.addEventListener('resize', onResize);
+
+// ── visibility pause ────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+let running = true, rafId = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    running = false;
+    cancelAnimationFrame(rafId);
+  } else if (!running) {
+    running = true;
+    clock.getDelta();
+    tick();
+  }
+});
+
+// ── main tick ───────────────────────────────────────────────────────────
+function tick() {
+  if (!running) return;
+  const delta = Math.min(clock.getDelta(), 0.1);
+  const t = clock.elapsedTime;
+
+  for (const k in state) damp(state[k], delta);
+
+  // Camera (gentle parallax + scroll-driven dolly)
+  camera.position.x = state.mouseX.current * 0.25;
+  camera.position.y = 0.4 + state.mouseY.current * 0.15;
+  camera.position.z = state.cameraZ.current;
+  camera.lookAt(0, state.groupY.current * 0.5, 0);   // half-track toward coin
+
+  // Coin group — falls and drifts
+  coinGroup.position.x = state.groupX.current;
+  coinGroup.position.y = state.groupY.current + Math.sin(t * 0.8) * 0.05;   // tiny float
+
+  // Inner coin — tumble around X (the toss), spin around Y (face spin)
+  // (coin may still be null in the first frames before GLB loads)
+  if (coin) {
+    coin.rotation.x = Math.PI / 2 + state.coinTumble.current;
+    coin.rotation.y = state.coinSpin.current;
+  }
+
+  grainPass.uniforms.uTime.value = t;
+  composer.render();
+  rafId = requestAnimationFrame(tick);
+}
+
+// ── preloader (LoadingManager-driven) ───────────────────────────────────
+const preloader = document.getElementById('preloader');
+const counterEl = preloader.querySelector('.preloader-counter');
+const fillEl = preloader.querySelector('.preloader-fill');
+
+loadingManager.onProgress = (url, loaded, total) => {
+  const pct = Math.round((loaded / total) * 100);
+  counterEl.textContent = pct;
+  fillEl.style.width = `${pct}%`;
+};
+
+loadingManager.onLoad = () => {
+  // Force the bar to 100 visually before fading
+  counterEl.textContent = '100';
+  fillEl.style.width = '100%';
+  setTimeout(playIntro, 220);
+};
+
+loadingManager.onError = (url) => {
+  console.error('[awwwards-3d] failed to load', url);
+  counterEl.textContent = 'ERR';
+  fillEl.style.background = '#ff4d4d';
+};
+
+function playIntro() {
+  preloader.classList.add('done');
+  renderer.compile(scene, camera);
+  composer.render(0.016);
+
+  const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+  tl.from(camera.position, { z: 16, duration: 2.4 }, 0)
+    .from(camera, { fov: 50, duration: 2.4,
+      onUpdate: () => camera.updateProjectionMatrix() }, 0)
+    .from(coinGroup.position, { y: 6, duration: 1.6, ease: 'back.out(1.2)' }, 0.2);
+  if (coin) {
+    tl.from(coin.rotation, { x: 0, duration: 1.8, ease: 'power3.out' }, 0.2);
+  }
+}
+
+// ── start ───────────────────────────────────────────────────────────────
+tick();
+
+// ── teardown (for SPA embedding) ────────────────────────────────────────
+window.__awwwards3d_destroy = () => {
+  cancelAnimationFrame(rafId);
+  lenis.destroy();
+  ScrollTrigger.getAll().forEach((t) => t.kill());
+  scene.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m) => {
+        for (const k of Object.keys(m)) {
+          if (m[k] && m[k].isTexture) m[k].dispose();
+        }
+        m.dispose();
+      });
+    }
+  });
+  composer.renderTarget1?.dispose();
+  composer.renderTarget2?.dispose();
+  hdrTarget.dispose();
+  renderer.dispose();
+  renderer.forceContextLoss();
+};
+</script>
+
+</body>
+</html>

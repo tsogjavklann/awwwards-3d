@@ -1,0 +1,576 @@
+<!doctype html>
+<!--
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ HOW TO RUN — DO NOT double-click this file.                      │
+  │                                                                  │
+  │ This template loads ../models/room.glb (Blender-modeled box room)│
+  │ Serve from the parent assets/ folder so models/ is accessible:   │
+  │                                                                  │
+  │   cd assets                                                      │
+  │   python -m http.server 8766                                     │
+  │   → open http://localhost:8766/templates/room-walkthrough.html   │
+  │                                                                  │
+  │ Room dims: 10×10 floor, ceiling at y=5, walls at x=±5, z=±5.     │
+  │ Painting / pedestal / hero orb are added in-code (emissive +     │
+  │ dynamic so they don't belong in the GLB).                        │
+  └──────────────────────────────────────────────────────────────────┘
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Awwwards 3D — room walkthrough</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='3' width='10' height='10' rx='1' fill='none' stroke='%23ffe6b3' stroke-width='1.5'/%3E%3C/svg%3E">
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    overscroll-behavior: none;
+    scroll-behavior: auto;
+    background: #0a0907;
+    color: #ede2c8;
+  }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html.lenis, html.lenis body { height: auto; }
+  .lenis.lenis-smooth { scroll-behavior: auto !important; }
+  .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+  .lenis.lenis-stopped { overflow: hidden; }
+
+  #webgl {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  main { position: relative; z-index: 1; }
+  section {
+    position: relative;
+    height: 100vh;
+    padding: clamp(1.5rem, 5vw, 4rem);
+    display: flex; align-items: flex-end;
+  }
+  section h1, section h2 {
+    font-weight: 600;
+    font-size: clamp(1.8rem, 5.5vw, 4.5rem);
+    line-height: 1.0;
+    letter-spacing: -0.04em;
+    max-width: 20ch;
+  }
+  section .meta {
+    position: absolute; top: clamp(1.5rem, 5vw, 4rem); left: clamp(1.5rem, 5vw, 4rem);
+    font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+    opacity: 0.6;
+  }
+
+  #preloader {
+    position: fixed; inset: 0;
+    background: #0a0907; color: #ede2c8;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 9000;
+    transition: opacity 0.6s ease, visibility 0.6s;
+    gap: 1rem;
+  }
+  #preloader.done { opacity: 0; visibility: hidden; }
+  .preloader-counter {
+    font: 600 clamp(2.5rem, 8vw, 5rem)/1 ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.04em;
+  }
+  .preloader-bar { width: clamp(160px, 30vw, 280px); height: 1px; background: rgba(237,226,200,0.18); }
+  .preloader-fill { height: 100%; width: 0%; background: #ede2c8; transition: width 0.2s ease; }
+
+  body.no-webgl #webgl { display: none; }
+  body.no-webgl::before {
+    content: "WebGL unavailable — please use a modern browser";
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    color: #888; font-size: 0.9rem; letter-spacing: 0.05em;
+  }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+    "gsap": "https://esm.sh/gsap@3.12.5",
+    "gsap/ScrollTrigger": "https://esm.sh/gsap@3.12.5/ScrollTrigger",
+    "lenis": "https://unpkg.com/lenis@1.1.0/dist/lenis.mjs"
+  }
+}
+</script>
+
+<script>
+  window.addEventListener('error', (e) => {
+    console.error('[awwwards-3d]', e.message, e.error);
+    const c = document.querySelector('.preloader-counter');
+    if (c) c.textContent = 'ERR';
+    const f = document.querySelector('.preloader-fill');
+    if (f) f.style.background = '#ff4d4d';
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('[awwwards-3d] unhandled', e.reason);
+    const c = document.querySelector('.preloader-counter');
+    if (c) c.textContent = 'ERR';
+  });
+</script>
+</head>
+<body>
+
+<div id="preloader" aria-hidden="true">
+  <div class="preloader-counter">0</div>
+  <div class="preloader-bar"><div class="preloader-fill"></div></div>
+</div>
+
+<canvas id="webgl"></canvas>
+
+<main class="scroll-container">
+  <section><span class="meta">01 — Threshold</span><h1>You step inside the room</h1></section>
+  <section><span class="meta">02 — Sweep</span><h2>The light from the window catches the dust</h2></section>
+  <section><span class="meta">03 — Inhale</span><h2>Stand still. Look at what's been waiting</h2></section>
+  <section><span class="meta">04 — Beyond</span><h2>The far wall opens onto something brighter</h2></section>
+  <section><span class="meta">05 — End</span><h2>Fork this template</h2></section>
+</main>
+
+<script type="module">
+// ─────────────────────────────────────────────────────────────────────────
+// Awwwards 3D — room walkthrough template
+// Three.js r170 + GSAP 3.12.5 + Lenis 1.1.0 + three built-in EffectComposer
+// Camera follows a CatmullRomCurve3 spline through a low-poly interior
+// ─────────────────────────────────────────────────────────────────────────
+
+function detectWebGL() {
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (!gl) return false;
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const r = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '';
+    return !/SwiftShader|Software|llvmpipe/i.test(r);
+  } catch (e) { return false; }
+}
+if (!detectWebGL()) {
+  document.body.classList.add('no-webgl');
+  document.getElementById('preloader').classList.add('done');
+  throw new Error('WebGL unavailable');
+}
+
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
+import Lenis from 'lenis';
+
+gsap.registerPlugin(ScrollTrigger);
+
+// ── renderer ────────────────────────────────────────────────────────────
+const canvas = document.getElementById('webgl');
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: false,
+  powerPreference: 'high-performance',
+  stencil: false,
+  depth: true,
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.VSMShadowMap;
+
+// ── scene & camera ──────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0907);
+scene.fog = new THREE.FogExp2(0x0a0907, 0.06);
+
+// FOV 50 = neutral, default for room walkthrough
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.05, 100);
+
+// ── environment ─────────────────────────────────────────────────────────
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+pmrem.dispose();
+
+// ── stage ───────────────────────────────────────────────────────────────
+const stage = new THREE.Group(); stage.name = 'stage';
+
+// Override materials applied AFTER GLB load (the GLB ships matte cream for everything).
+const floorOverrideColor = new THREE.Color(0x6a5a45);   // warm brown floor
+const sofaOverrideColor  = new THREE.Color(0x8a3a2a);   // terracotta sofa
+
+// Painting — emissive bloom anchor. Stays in-code because emissive belongs to runtime.
+const painting = new THREE.Mesh(
+  new THREE.PlaneGeometry(2.2, 1.5),
+  new THREE.MeshStandardMaterial({
+    color: 0x1a3550,
+    emissive: 0x4080d0,
+    emissiveIntensity: 1.6,
+    roughness: 0.5,
+  }),
+);
+// Back wall is at z=-5 in the GLB (Recipe 4). Place the painting just in front of it.
+painting.position.set(0, 2.4, -4.95);
+stage.add(painting);
+
+// Pedestal + hero orb — independent of the architectural box, kept in-code
+const pedestal = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.5, 0.55, 1.2, 32),
+  new THREE.MeshStandardMaterial({ color: 0x8a3a2a, roughness: 0.7, metalness: 0.0 }),
+);
+pedestal.position.set(-2, 0.6, -2.5);
+pedestal.castShadow = true;
+pedestal.receiveShadow = true;
+stage.add(pedestal);
+
+const heroOrb = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(0.32, 2),
+  new THREE.MeshStandardMaterial({
+    color: 0xffffff, metalness: 1.0, roughness: 0.15, envMapIntensity: 1.4,
+  }),
+);
+heroOrb.position.set(-2, 1.55, -2.5);
+heroOrb.castShadow = true;
+stage.add(heroOrb);
+
+scene.add(stage);
+
+// ── GLB room load ───────────────────────────────────────────────────────
+const loadingManager = new THREE.LoadingManager();
+const draco = new DRACOLoader(loadingManager);
+draco.setDecoderPath('https://unpkg.com/three@0.170.0/examples/jsm/libs/draco/');
+draco.setDecoderConfig({ type: 'js' });
+
+const gltfLoader = new GLTFLoader(loadingManager);
+gltfLoader.setDRACOLoader(draco);
+
+gltfLoader.load(
+  '../models/room.glb',
+  (gltf) => {
+    const room = gltf.scene;
+    room.name = 'room';
+    // Override per-mesh materials by name match
+    room.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = true;
+      o.receiveShadow = true;
+      const n = o.name;
+      if (n.startsWith('floor') && o.material) {
+        o.material.color.copy(floorOverrideColor);
+      } else if (n.startsWith('sofa') && o.material) {
+        o.material.color.copy(sofaOverrideColor);
+      }
+    });
+    stage.add(room);
+  },
+  undefined,
+  (err) => {
+    console.error('[awwwards-3d] room.glb failed to load:', err);
+  },
+);
+
+// ── lighting (interior — warm lamp + cool window) ───────────────────────
+const lighting = new THREE.Group(); lighting.name = 'lighting';
+
+// Warm "lamp" point light hovering over the pedestal
+const lamp = new THREE.PointLight(0xffb070, 4.0, 8, 1.6);
+lamp.position.set(-2, 3.6, -2.5);
+lamp.castShadow = true;
+lamp.shadow.mapSize.set(512, 512);
+lamp.shadow.bias = -0.0005;
+lighting.add(lamp);
+
+// Cool "window" directional from +X side
+const window_ = new THREE.DirectionalLight(0x88aaff, 0.6);
+window_.position.set(6, 4, 2);
+window_.target.position.set(0, 1, 0);
+window_.castShadow = true;
+window_.shadow.mapSize.set(1024, 1024);
+window_.shadow.camera.near = 0.5;
+window_.shadow.camera.far = 20;
+window_.shadow.bias = -0.0001;
+const sd = 5;
+Object.assign(window_.shadow.camera, { left: -sd, right: sd, top: sd, bottom: -sd });
+lighting.add(window_, window_.target);
+
+// Tiny ambient bounce
+const bounce = new THREE.AmbientLight(0xffffff, 0.15);
+lighting.add(bounce);
+
+scene.add(lighting);
+
+// ── camera spline path (room is 10×10 floor, ceiling y=5, walls at ±5) ──
+// 6 control points walking through the room. Y mostly steady at human eye height.
+const path = new THREE.CatmullRomCurve3([
+  new THREE.Vector3( 0,   1.6,  7),     // start: outside the room (z>5)
+  new THREE.Vector3( 0.5, 1.6,  3),     // crossing the threshold
+  new THREE.Vector3( 2.5, 1.55, 0.5),   // sweep right
+  new THREE.Vector3( 0.5, 1.6, -1),     // turn toward pedestal
+  new THREE.Vector3(-1.5, 1.65,-1.5),   // approach hero orb
+  new THREE.Vector3(-1.5, 1.6, -3.8),   // close to back wall, painting visible
+], false, 'catmullrom', 0.45);
+
+// Look-at uses a separate, forward-pointing spline so the camera always looks
+// "where it's heading" rather than directly down the path.
+const lookPath = new THREE.CatmullRomCurve3([
+  new THREE.Vector3( 0,   1.6,  3),
+  new THREE.Vector3( 0,   1.55, 0),
+  new THREE.Vector3( 0,   1.6, -1.5),
+  new THREE.Vector3(-2,   1.6, -2.5),
+  new THREE.Vector3(-1.5, 1.7, -3.5),
+  new THREE.Vector3( 0,   2.4, -5),     // ends on the painting
+], false, 'catmullrom', 0.5);
+
+// ── post-processing ─────────────────────────────────────────────────────
+const hdrTarget = new THREE.WebGLRenderTarget(
+  window.innerWidth, window.innerHeight,
+  { type: THREE.HalfFloatType },
+);
+const composer = new EffectComposer(renderer, hdrTarget);
+composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+composer.setSize(window.innerWidth, window.innerHeight);
+
+composer.addPass(new RenderPass(scene, camera));
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.5, 0.55, 0.75,    // emissive painting catches strong glow
+);
+composer.addPass(bloomPass);
+
+const vignettePass = new ShaderPass({
+  uniforms: {
+    tDiffuse:  { value: null },
+    uOffset:   { value: 0.35 },
+    uDarkness: { value: 0.7 },     // darker corners for room mood
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uOffset; uniform float uDarkness;
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      vec2 uv = vUv - 0.5;
+      float v = smoothstep(0.85, uOffset, length(uv));
+      gl_FragColor = vec4(mix(c.rgb * (1.0 - uDarkness), c.rgb, v), c.a);
+    }`,
+});
+composer.addPass(vignettePass);
+
+composer.addPass(new OutputPass());
+
+const grainPass = new ShaderPass({
+  uniforms: {
+    tDiffuse:   { value: null },
+    uTime:      { value: 0 },
+    uIntensity: { value: 0.06 },     // a touch more grain for "filmic interior"
+  },
+  vertexShader: `varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uTime; uniform float uIntensity;
+    varying vec2 vUv;
+    float rand(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      float n = rand(vUv + uTime) - 0.5;
+      gl_FragColor = vec4(c.rgb + n * uIntensity, c.a);
+    }`,
+});
+composer.addPass(grainPass);
+
+// ── lerp state ──────────────────────────────────────────────────────────
+const state = {
+  pathT:  { current: 0, target: 0, ease: 0.05 },   // scroll progress along curve (slow lerp)
+  mouseX: { current: 0, target: 0, ease: 0.10 },
+  mouseY: { current: 0, target: 0, ease: 0.10 },
+  orbY:   { current: 0, target: 0, ease: 0.08 },   // hero orb hover
+};
+function damp(s, dt) {
+  const f = 1 - Math.pow(1 - s.ease, dt * 60);
+  s.current += (s.target - s.current) * f;
+}
+
+// ── lenis + ScrollTrigger ───────────────────────────────────────────────
+const lenis = new Lenis({
+  duration: 1.4,                 // a touch slower for "walking pace"
+  easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+  smoothWheel: true,
+  prevent: () => false,
+});
+lenis.on('scroll', ScrollTrigger.update);
+gsap.ticker.add((time) => lenis.raf(time * 1000));
+gsap.ticker.lagSmoothing(0);
+
+// Map scroll progress (0..1) → path target
+gsap.timeline({
+  scrollTrigger: {
+    trigger: '.scroll-container',
+    start: 'top top',
+    end: 'bottom bottom',
+    scrub: true,
+  },
+}).to(state.pathT, { target: 1.0, ease: 'none' }, 0);
+
+// ── mouse parallax (subtle — so spline stays in command) ────────────────
+if (!window.matchMedia('(pointer: coarse)').matches) {
+  window.addEventListener('mousemove', (e) => {
+    state.mouseX.target = (e.clientX / window.innerWidth) * 2 - 1;
+    state.mouseY.target = -((e.clientY / window.innerHeight) * 2 - 1);
+  });
+}
+
+// ── resize ──────────────────────────────────────────────────────────────
+let resizePending = false;
+function onResize() {
+  if (resizePending) return;
+  resizePending = true;
+  requestAnimationFrame(() => {
+    const w = window.innerWidth, h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    composer.setSize(w, h);
+    bloomPass.resolution.set(w, h);
+    resizePending = false;
+  });
+}
+window.addEventListener('resize', onResize);
+
+// ── visibility pause ────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+let running = true, rafId = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    running = false;
+    cancelAnimationFrame(rafId);
+  } else if (!running) {
+    running = true;
+    clock.getDelta();
+    tick();
+  }
+});
+
+// ── main tick ───────────────────────────────────────────────────────────
+const tmpPos = new THREE.Vector3();
+const tmpAim = new THREE.Vector3();
+const tmpUp  = new THREE.Vector3(0, 1, 0);
+
+function tick() {
+  if (!running) return;
+  const delta = Math.min(clock.getDelta(), 0.1);
+  const t = clock.elapsedTime;
+
+  for (const k in state) damp(state[k], delta);
+
+  // Camera along the spline
+  const tt = THREE.MathUtils.clamp(state.pathT.current, 0, 1);
+  path.getPointAt(tt, tmpPos);
+  lookPath.getPointAt(tt, tmpAim);
+
+  // Tiny mouse parallax adds life on top of spline
+  tmpPos.x += state.mouseX.current * 0.10;
+  tmpPos.y += state.mouseY.current * 0.06;
+
+  camera.position.copy(tmpPos);
+  camera.up.copy(tmpUp);
+  camera.lookAt(tmpAim);
+
+  // Hero orb gentle hover
+  heroOrb.position.y = 1.55 + Math.sin(t * 1.1) * 0.05;
+  heroOrb.rotation.y = t * 0.4;
+
+  // Painting subtle pulse — emissive intensity breathes
+  painting.material.emissiveIntensity = 1.4 + Math.sin(t * 0.8) * 0.25;
+
+  grainPass.uniforms.uTime.value = t;
+  composer.render();
+  rafId = requestAnimationFrame(tick);
+}
+
+// ── preloader (LoadingManager-driven) ───────────────────────────────────
+const preloader = document.getElementById('preloader');
+const counterEl = preloader.querySelector('.preloader-counter');
+const fillEl = preloader.querySelector('.preloader-fill');
+
+loadingManager.onProgress = (url, loaded, total) => {
+  const pct = Math.round((loaded / total) * 100);
+  counterEl.textContent = pct;
+  fillEl.style.width = `${pct}%`;
+};
+
+loadingManager.onLoad = () => {
+  counterEl.textContent = '100';
+  fillEl.style.width = '100%';
+  setTimeout(playIntro, 220);
+};
+
+loadingManager.onError = (url) => {
+  console.error('[awwwards-3d] failed to load', url);
+  counterEl.textContent = 'ERR';
+  fillEl.style.background = '#ff4d4d';
+};
+
+function playIntro() {
+  preloader.classList.add('done');
+  renderer.compile(scene, camera);
+  composer.render(0.016);
+
+  // Place camera at start of path before animating in
+  path.getPointAt(0, tmpPos);
+  camera.position.copy(tmpPos);
+
+  const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+  tl.from(camera, { fov: 60, duration: 2.0,
+    onUpdate: () => camera.updateProjectionMatrix() }, 0);
+  tl.from(painting.material, { emissiveIntensity: 0.0, duration: 1.6 }, 0.3);
+  tl.from(lamp, { intensity: 0.0, duration: 1.2 }, 0.4);
+}
+
+// ── start ───────────────────────────────────────────────────────────────
+tick();
+
+// ── teardown ────────────────────────────────────────────────────────────
+window.__awwwards3d_destroy = () => {
+  cancelAnimationFrame(rafId);
+  lenis.destroy();
+  ScrollTrigger.getAll().forEach((t) => t.kill());
+  scene.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m) => {
+        for (const k of Object.keys(m)) {
+          if (m[k] && m[k].isTexture) m[k].dispose();
+        }
+        m.dispose();
+      });
+    }
+  });
+  composer.renderTarget1?.dispose();
+  composer.renderTarget2?.dispose();
+  hdrTarget.dispose();
+  renderer.dispose();
+  renderer.forceContextLoss();
+};
+</script>
+
+</body>
+</html>

@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Blender
+*.blend1
+*.blend2
+
+# Local env / secrets
+.env
+.env.local
+
+# Test scaffolds (when running init_project.py from this folder)
+/test-*/
+
+# Playwright local test outputs (not part of skill artifacts)
+.playwright-mcp/
+
+# Backup of HDRI folder (binary blobs not in repo)
+assets/hdri/*.hdr
+assets/hdri/*.exr
+# (README.md is allowed and tracked)
+!assets/hdri/README.md
