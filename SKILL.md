@@ -142,6 +142,7 @@ Load these on demand — do not read all of them at start.
 
 - `references/ARCHITECTURE.md` — scene structure, the lerp/scroll loop, render order
 - `references/PATTERNS.md` — 33 copy-paste code snippets for common needs
+- `references/PROCEDURAL_GEOMETRY.md` — code-only geometry generation; primitives, math-driven shapes, vertex displacement, hybrid Blender patterns. The default path before reaching for AI 3D generators.
 - `references/BLENDER_PIPELINE.md` — Blender MCP recipes + GLB export config
 - `references/SHADERS.md` — GLSL building blocks (noise, fresnel, dispersion, custom materials)
 - `references/POST_PROCESSING.md` — bloom, DOF, grain, chromatic aberration recipes

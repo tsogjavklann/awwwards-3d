@@ -37,6 +37,7 @@ awwwards-3d/
 ├── references/
 │   ├── ARCHITECTURE.md            Scene graph, lerp loop, scroll loop, render order, cleanup
 │   ├── PATTERNS.md                33 copy-paste snippets (camera, materials, lighting, etc.)
+│   ├── PROCEDURAL_GEOMETRY.md     Code-only geometry; primitives, math, vertex displacement
 │   ├── POST_PROCESSING.md         Canonical built-in EffectComposer chain
 │   ├── SHADERS.md                 GLSL building blocks (noise, fresnel, dispersion, …)
 │   ├── TRANSITIONS.md             Page transitions (View Transitions, Barba.js, custom GSAP)
