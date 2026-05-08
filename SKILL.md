@@ -1,6 +1,6 @@
 ---
 name: awwwards-3d
-description: Build production-grade Awwwards-style scroll-driven 3D websites in the visual language of Active Theory, Lusion, 14islands, Bonhomme, Resn, Studio Freight, Locomotive, and Igloo Inc. Use when the user asks for an "Awwwards-style", "scroll-driven 3D", "WebGL hero", "3D landing page", "interactive product showcase", "scroll storytelling site", "cinematic web experience", "creative dev portfolio", "premium 3D site", "Lusion-style", "Active Theory-style", "scroll 3D animation", or mentions Three.js + GSAP + Lenis together. Also triggers on Mongolian phrases like "3D вэб", "scroll-тэй 3D", "premium вэбсайт", "cinematic вэб", "Awwwards маягтай", "3D landing", "интерактив 3D". Locks tech stack to Three.js r170 + GSAP 3.12.5 + Lenis 1.1.0 + postprocessing 6.36.0. Produces single-file HTML deliverables when possible. Do NOT use for: static marketing sites without 3D, plain React/Next.js apps, dashboards, admin UIs, or simple landing pages where 3D would be decorative noise.
+description: Build production-grade Awwwards-style scroll-driven 3D websites in the visual language of Active Theory, Lusion, 14islands, Bonhomme, Resn, Studio Freight, Locomotive, and Igloo Inc. Use when the user asks for an "Awwwards-style", "scroll-driven 3D", "WebGL hero", "3D landing page", "interactive product showcase", "scroll storytelling site", "cinematic web experience", "creative dev portfolio", "premium 3D site", "Lusion-style", "Active Theory-style", "scroll 3D animation", or mentions Three.js + GSAP + Lenis together. Also triggers on Mongolian phrases like "3D вэб", "scroll-тэй 3D", "premium вэбсайт", "cinematic вэб", "Awwwards маягтай", "3D landing", "интерактив 3D". Locks tech stack to Three.js r170 + GSAP 3.12.5 + Lenis 1.1.0 with three's built-in `EffectComposer` for post-processing. Produces single-file HTML deliverables when possible. Do NOT use for: static marketing sites without 3D, plain React/Next.js apps, dashboards, admin UIs, or simple landing pages where 3D would be decorative noise.
 license: MIT
 ---
 
@@ -91,7 +91,7 @@ Start from `assets/templates/`:
 - `minimal.html` — empty scene with HDRI, tone mapping, Lenis, post-processing wired up. Use as the foundation for anything custom.
 - `coin-scroll.html` — coin rotates and falls on scroll (object showcase).
 - `room-walkthrough.html` — camera moves along a spline through a room (room walkthrough).
-- `glass-product.html` — single product with `MeshTransmissionMaterial`, HDRI, bloom (object showcase, glass).
+- `glass-product.html` — single product with `MeshPhysicalMaterial` transmission + dispersion (r166+), HDRI, gentle bloom (object showcase, glass).
 
 Templates are starting points, not final work. Strip what you don't need, layer what you do.
 
@@ -106,7 +106,7 @@ The order matters. Each layer assumes the previous is in place.
 5. **Lenis** smooth scroll wired to GSAP `ScrollTrigger.update`
 6. **Custom cursor** (optional, but a Bonhomme/Lusion signature)
 7. **Scroll timeline** — GSAP timeline driven by `ScrollTrigger`, lerping camera/object properties
-8. **Film grain** as the final composite layer (`NoiseEffect`, opacity ~0.05)
+8. **Film grain** as the final composite layer — custom `ShaderPass` with a time-driven noise fragment, intensity ~0.05 (see `references/POST_PROCESSING.md` § "Pass 5 — Film grain")
 
 ### Step 5 — Performance Audit
 
@@ -141,7 +141,7 @@ These ship broken work. See `references/ANTI_PATTERNS.md` for the long form.
 Load these on demand — do not read all of them at start.
 
 - `references/ARCHITECTURE.md` — scene structure, the lerp/scroll loop, render order
-- `references/PATTERNS.md` — 30+ copy-paste code snippets for common needs
+- `references/PATTERNS.md` — 33 copy-paste code snippets for common needs
 - `references/BLENDER_PIPELINE.md` — Blender MCP recipes + GLB export config
 - `references/SHADERS.md` — GLSL building blocks (noise, fresnel, dispersion, custom materials)
 - `references/POST_PROCESSING.md` — bloom, DOF, grain, chromatic aberration recipes
