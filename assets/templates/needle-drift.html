@@ -261,6 +261,24 @@ const TUBE_LENGTH = 80;
 const Y_SQUASH = 0.7;       // vertical flatten — reads horizon-friendly
 
 const needleGeom = new THREE.BoxGeometry(0.02, 1.5, 0.02);
+// Palette colors (specified in sRGB hex; convert to linear so shader math is correct).
+const colorLavender = new THREE.Color(0x9d93c4).convertSRGBToLinear();
+const colorTeal     = new THREE.Color(0x7faaa6).convertSRGBToLinear();
+const fogColorA = new THREE.Color(0x16121d);                  // near-lavender fog (Enter / Vanish)
+const fogColorB = new THREE.Color(0x1b1e22);                  // teal-leaning fog (Bloom)
+const fogColorScratch = new THREE.Color();                    // pre-allocated for per-frame lerp
+
+// Uniforms that the lerp loop will mutate. Bound to needleMat via onBeforeCompile below.
+const needleUniforms = {
+  uDensity:    { value: 0.30 },
+  uColorMix:   { value: 0.0  },
+  uColorA:     { value: new THREE.Vector3(colorLavender.r, colorLavender.g, colorLavender.b) },
+  uColorB:     { value: new THREE.Vector3(colorTeal.r,     colorTeal.g,     colorTeal.b)     },
+  uBandPhase:  { value: 0.0  },
+  uBandWidth:  { value: 0.35 },
+  uTime:       { value: 0.0  },
+};
+
 const needleMat = new THREE.MeshStandardMaterial({
   color: 0xc8c0e4,          // lavender-leaning base; gets palette-multiplied in shader patch (Task 5)
   roughness: 0.55,
@@ -269,6 +287,67 @@ const needleMat = new THREE.MeshStandardMaterial({
   depthWrite: false,        // critical: prevents transparent-on-transparent z-fighting
   envMapIntensity: 0.3,
 });
+
+// Shader patch: add uDensity / uColorMix / uBandPhase / aBand to the standard
+// MeshStandardMaterial. We modify diffuseColor BEFORE lighting (so the warm
+// shift propagates through bloom) and modulate alpha at the very end (so it
+// composes with the normal alpha pipeline).
+needleMat.onBeforeCompile = (shader) => {
+  Object.assign(shader.uniforms, needleUniforms);
+
+  // VERTEX SHADER: declare aBand attribute, pass through to fragment as vBand.
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <common>',
+    `#include <common>
+attribute float aBand;
+varying float vBand;`,
+  );
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <begin_vertex>',
+    `#include <begin_vertex>
+vBand = aBand;`,
+  );
+
+  // FRAGMENT SHADER: declare uniforms.
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <common>',
+    `#include <common>
+uniform float uDensity;
+uniform float uColorMix;
+uniform vec3  uColorA;
+uniform vec3  uColorB;
+uniform float uBandPhase;
+uniform float uBandWidth;
+uniform float uTime;
+varying float vBand;`,
+  );
+
+  // Color tint: insert right after diffuseColor is initialized from material.color.
+  // Inserting here means lighting (which reads diffuseColor.rgb) sees the tinted color,
+  // so the warm shift propagates through bloom naturally.
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <color_fragment>',
+    `#include <color_fragment>
+{
+  vec3 paletteColor = mix(uColorA, uColorB, uColorMix);
+  diffuseColor.rgb *= paletteColor;
+}`,
+  );
+
+  // Alpha modulation: insert at the very tail, just before dithering.
+  // aBand-based band visibility + per-instance shimmer + global density multiplier.
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <dithering_fragment>',
+    `#include <dithering_fragment>
+{
+  float bandDist = abs(vBand - uBandPhase);
+  bandDist = min(bandDist, 1.0 - bandDist);          // wrap (uBandPhase loops 0..1)
+  float bandVis = 1.0 - smoothstep(0.0, uBandWidth, bandDist);
+  float shimmer = 0.9 + 0.1 * sin(uTime * 0.6 + vBand * 40.0);
+  gl_FragColor.a *= uDensity * bandVis * shimmer;
+}`,
+  );
+};
 
 const needles = new THREE.InstancedMesh(needleGeom, needleMat, INSTANCE_COUNT);
 needles.instanceMatrix.setUsage(THREE.StaticDrawUsage);
