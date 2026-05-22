@@ -485,15 +485,43 @@ gsap.ticker.add((time) => lenis.raf(time * 1000));
 gsap.ticker.lagSmoothing(0);
 
 // ── scroll timeline ─────────────────────────────────────────────────────
-gsap.timeline({
+// Single GSAP timeline scrubbed by ScrollTrigger via Lenis. 4 beats:
+//   01 Enter   (scroll 0.00 → 0.25)
+//   02 Drift   (scroll 0.25 → 0.50)
+//   03 Bloom   (scroll 0.50 → 0.75)  — peak
+//   04 Vanish  (scroll 0.75 → 1.00)
+// Targets `state.*.target`; the lerp loop damps `current` toward `target`,
+// giving two-stage smoothing (scrub + lerp) that reads as "buttery".
+const tl = gsap.timeline({
   scrollTrigger: {
     trigger: '.scroll-container',
     start: 'top top',
     end: 'bottom bottom',
-    scrub: true,
+    scrub: 1.2,
   },
-})
-.to(state.cameraZ,  { target: 30, ease: 'none' }, 0);
+  defaults: { ease: 'none', duration: 1 },
+});
+
+// Beat 1 → 2 (Enter → Drift): camera advances, density builds gently
+tl.to(state.cameraZ,    { target: 18   }, 0)
+  .to(state.uDensity,   { target: 0.55 }, 0)
+  .to(state.uColorMix,  { target: 0.20 }, 0)
+  .to(state.uBandPhase, { target: 0.25 }, 0)
+
+// Beat 2 → 3 (Drift → Bloom): peak density, full warm shift, subtle roll
+  .to(state.cameraZ,    { target: 42   }, 1)
+  .to(state.uDensity,   { target: 1.00 }, 1)
+  .to(state.uColorMix,  { target: 1.00 }, 1)
+  .to(state.uBandPhase, { target: 0.55 }, 1)
+  .to(state.cameraRollZ,{ target: 0.04 }, 1)
+
+// Beat 3 → 4 (Bloom → Vanish): density crashes, fog thickens, color returns cool
+  .to(state.cameraZ,    { target: 70    }, 2)
+  .to(state.uDensity,   { target: 0.10  }, 2)
+  .to(state.uColorMix,  { target: 0.0   }, 2)
+  .to(state.uBandPhase, { target: 0.95  }, 2)
+  .to(state.cameraRollZ,{ target: 0.0   }, 2)
+  .to(state.fogDensity, { target: 0.045 }, 2);
 
 // ── mouse parallax ──────────────────────────────────────────────────────
 window.addEventListener('mousemove', (e) => {
