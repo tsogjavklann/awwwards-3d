@@ -224,7 +224,7 @@ renderer.shadowMap.enabled = false;
 // ── scene & camera ──────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x16121d);
-// FogExp2 — matches scene.background; density + color will be animated in Task 9 (tick loop wiring).
+// FogExp2 — matches scene.background; density + color are animated by the tick loop below.
 scene.fog = new THREE.FogExp2(0x16121d, 0.022);
 
 const camera = new THREE.PerspectiveCamera(
