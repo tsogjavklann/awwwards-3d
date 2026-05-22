@@ -92,6 +92,7 @@ Start from `assets/templates/`:
 - `coin-scroll.html` — coin rotates and falls on scroll (object showcase).
 - `room-walkthrough.html` — camera moves along a spline through a room (room walkthrough).
 - `glass-product.html` — single product with `MeshPhysicalMaterial` transmission + dispersion (r166+), HDRI, gentle bloom (object showcase, glass).
+- `needle-drift.html` — ~6000 instanced needles scattered through dreamlike fog; density + color breathe across 4 scroll beats (tunnel archetype, pure procedural).
 
 Templates are starting points, not final work. Strip what you don't need, layer what you do.
 
