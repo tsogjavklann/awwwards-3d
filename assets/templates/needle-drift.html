@@ -203,16 +203,24 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;  // OutputPass reads this
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 0.95;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.VSMShadowMap;
 
 // ── scene & camera ──────────────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0a0e);
+scene.background = new THREE.Color(0x16121d);
+// FogExp2 — color is mutated per frame by the lerp loop (see tick()).
+// Density also gets scrolled (thickens in section 4).
+scene.fog = new THREE.FogExp2(0x16121d, 0.022);
 
-const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, 1.2, 6);
+const camera = new THREE.PerspectiveCamera(
+  40,                                // slightly wider than minimal (35) for tunnel depth
+  window.innerWidth / window.innerHeight,
+  0.1,
+  120,
+);
+camera.position.set(0, 0, -5);       // starts behind the tube origin
 
 // ── environment (synthetic, self-contained) ─────────────────────────────
 const pmrem = new THREE.PMREMGenerator(renderer);
