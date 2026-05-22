@@ -393,9 +393,9 @@ composer.addPass(new RenderPass(scene, camera));
 // Bloom
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.45,    // strength
-  0.4,     // radius
-  0.82,    // threshold
+  0.65,    // strength — needles benefit from soft glow on tips
+  0.55,    // radius
+  0.55,    // threshold — lower so mid-bright needles bloom slightly
 );
 composer.addPass(bloomPass);
 
@@ -403,7 +403,7 @@ composer.addPass(bloomPass);
 const vignettePass = new ShaderPass({
   uniforms: {
     tDiffuse:  { value: null },
-    uOffset:   { value: 0.4 },
+    uOffset:   { value: 0.5 },
     uDarkness: { value: 0.55 },
   },
   vertexShader: `
@@ -433,7 +433,7 @@ const grainPass = new ShaderPass({
   uniforms: {
     tDiffuse:    { value: null },
     uTime:       { value: 0 },
-    uIntensity:  { value: 0.05 },
+    uIntensity:  { value: 0.06 },
   },
   vertexShader: `
     varying vec2 vUv;
