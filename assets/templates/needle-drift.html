@@ -569,15 +569,30 @@ function tick() {
   // 1. damp every state
   for (const k in state) damp(state[k], delta);
 
-  // 2. apply state
-  camera.position.x = state.mouseX.current * 0.30;
-  camera.position.z = state.cameraZ.current;
-  camera.lookAt(0, 0, 0);
+  // 2. apply state → camera (forward dolly + mouse parallax + subtle roll)
+  camera.position.set(0, 0, state.cameraZ.current);
+  camera.rotation.set(
+    state.mouseY.current * 0.05,    // pitch (mouse Y → pitch up/down)
+    state.mouseX.current * 0.05,    // yaw   (mouse X → yaw left/right)
+    state.cameraRollZ.current,      // roll  (scroll-driven, peaks at beat 3)
+  );
 
-  // 3. update post uniforms
+  // 3. apply state → needle uniforms
+  needleUniforms.uDensity.value   = state.uDensity.current;
+  needleUniforms.uColorMix.value  = state.uColorMix.current;
+  needleUniforms.uBandPhase.value = state.uBandPhase.current;
+  needleUniforms.uTime.value      = t;
+
+  // 4. apply state → fog (density + color lerped between fogColorA/fogColorB)
+  scene.fog.density = state.fogDensity.current;
+  fogColorScratch.copy(fogColorA).lerp(fogColorB, state.uColorMix.current);
+  scene.fog.color.copy(fogColorScratch);
+  scene.background = scene.fog.color;       // background tracks fog so the void blends seamlessly
+
+  // 5. update post uniforms
   grainPass.uniforms.uTime.value = t;
 
-  // 4. render
+  // 6. render
   composer.render();
   rafId = requestAnimationFrame(tick);
 }
