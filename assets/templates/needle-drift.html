@@ -320,8 +320,8 @@ composer.addPass(grainPass);
 
 // ── lerp state container ────────────────────────────────────────────────
 const state = {
-  cameraY:  { current: 1.2, target: 1.2, ease: 0.06 },
-  cameraZ:  { current: 6,   target: 6,   ease: 0.06 },
+  cameraY:  { current: 0,   target: 0,   ease: 0.06 },
+  cameraZ:  { current: -5,  target: -5,  ease: 0.06 },
   mouseX:   { current: 0,   target: 0,   ease: 0.12 },
   mouseY:   { current: 0,   target: 0,   ease: 0.12 },
 };
@@ -353,8 +353,8 @@ gsap.timeline({
     scrub: true,
   },
 })
-.to(state.cameraY,  { target: -1.5, ease: 'none' }, 0)
-.to(state.cameraZ,  { target:  4,   ease: 'none' }, 0);
+.to(state.cameraY,  { target: 0,  ease: 'none' }, 0)
+.to(state.cameraZ,  { target: 30, ease: 'none' }, 0);
 
 // ── mouse parallax ──────────────────────────────────────────────────────
 window.addEventListener('mousemove', (e) => {
