@@ -456,10 +456,14 @@ composer.addPass(grainPass);
 
 // ── lerp state container ────────────────────────────────────────────────
 const state = {
-  cameraY:  { current: 0,   target: 0,   ease: 0.06 },
-  cameraZ:  { current: -5,  target: -5,  ease: 0.06 },
-  mouseX:   { current: 0,   target: 0,   ease: 0.12 },
-  mouseY:   { current: 0,   target: 0,   ease: 0.12 },
+  cameraZ:     { current: -5,    target: -5,    ease: 0.06 },
+  cameraRollZ: { current:  0,    target:  0,    ease: 0.08 },
+  uDensity:    { current:  0.30, target:  0.30, ease: 0.08 },
+  uColorMix:   { current:  0.0,  target:  0.0,  ease: 0.05 },
+  uBandPhase:  { current:  0.0,  target:  0.0,  ease: 0.04 },
+  fogDensity:  { current:  0.022, target: 0.022, ease: 0.05 },
+  mouseX:      { current:  0,    target:  0,    ease: 0.12 },
+  mouseY:      { current:  0,    target:  0,    ease: 0.12 },
 };
 function damp(s, dt) {
   const f = 1 - Math.pow(1 - s.ease, dt * 60);
@@ -489,7 +493,6 @@ gsap.timeline({
     scrub: true,
   },
 })
-.to(state.cameraY,  { target: 0,  ease: 'none' }, 0)
 .to(state.cameraZ,  { target: 30, ease: 'none' }, 0);
 
 // ── mouse parallax ──────────────────────────────────────────────────────
@@ -540,7 +543,6 @@ function tick() {
 
   // 2. apply state
   camera.position.x = state.mouseX.current * 0.30;
-  camera.position.y = state.cameraY.current + state.mouseY.current * 0.20;
   camera.position.z = state.cameraZ.current;
   camera.lookAt(0, 0, 0);
 
