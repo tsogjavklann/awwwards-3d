@@ -210,8 +210,7 @@ renderer.shadowMap.type = THREE.VSMShadowMap;
 // ── scene & camera ──────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x16121d);
-// FogExp2 — color is mutated per frame by the lerp loop (see tick()).
-// Density also gets scrolled (thickens in section 4).
+// FogExp2 — matches scene.background; density + color will be animated in Task 9 (tick loop wiring).
 scene.fog = new THREE.FogExp2(0x16121d, 0.022);
 
 const camera = new THREE.PerspectiveCamera(
