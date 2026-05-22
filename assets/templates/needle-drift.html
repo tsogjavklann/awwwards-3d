@@ -12,7 +12,7 @@
   │   → open http://localhost:8766/templates/needle-drift.html       │
   │                                                                  │
   │ Archetype: Tunnel (per SKILL.md Step 1).                         │
-  │ Hero: ~6000 instanced needles in dreamlike lavender/teal fog.    │
+  │ Scene: ~6000 instanced needles in dreamlike lavender/teal fog.   │
   └──────────────────────────────────────────────────────────────────┘
 -->
 <html lang="en">
@@ -156,7 +156,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Awwwards 3D — needle drift template
 // Three.js r170 + GSAP 3.12.5 + Lenis 1.1.0 + three built-in EffectComposer
-// Archetype: Tunnel. Hero: ~6000 instanced needles, dreamlike fog.
+// Archetype: Tunnel. Scene: ~6000 instanced needles, dreamlike fog.
 // See specs/2026-05-22-needle-drift-design.md for the design rationale.
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -204,8 +204,8 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;  // OutputPass reads this
 renderer.toneMappingExposure = 0.95;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.VSMShadowMap;
+// Shadows disabled — fog hides them anyway, and needles don't cast.
+renderer.shadowMap.enabled = false;
 
 // ── scene & camera ──────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -226,50 +226,20 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 pmrem.dispose();
 
-// ── lighting ────────────────────────────────────────────────────────────
+// ── lighting (subtle directional grade — fog does most of the atmosphere work) ──
 const lighting = new THREE.Group(); lighting.name = 'lighting';
-const key = new THREE.DirectionalLight(0xffeedd, 1.4);
-key.position.set(5, 8, 5);
-key.castShadow = true;
-key.shadow.mapSize.set(1024, 1024);
-key.shadow.camera.near = 0.5;
-key.shadow.camera.far = 25;
-key.shadow.bias = -0.0001;
-key.shadow.radius = 8;
-const sd = 6;
-Object.assign(key.shadow.camera, { left: -sd, right: sd, top: sd, bottom: -sd });
-key.shadow.camera.updateProjectionMatrix();
 
-const fill = new THREE.DirectionalLight(0x88aaff, 0.35);
-fill.position.set(-5, 3, 4);
+const keyLight = new THREE.DirectionalLight(0xcab8e8, 0.6);     // lavender-tinted key
+keyLight.position.set(4, 8, 4);
 
-const rim = new THREE.DirectionalLight(0xffffff, 0.6);
-rim.position.set(0, 4, -8);
+const rimLight = new THREE.DirectionalLight(0xddeef0, 0.4);    // cool white rim from behind
+rimLight.position.set(0, 2, -10);
 
-lighting.add(key, fill, rim);
+lighting.add(keyLight, rimLight);
 scene.add(lighting);
 
-// ── stage (replace this block with your hero content) ───────────────────
+// ── stage (needle field is built in next task) ──────────────────────────
 const stage = new THREE.Group(); stage.name = 'stage';
-
-const heroGeom = new THREE.IcosahedronGeometry(1, 1);
-const heroMat = new THREE.MeshStandardMaterial({
-  color: 0xffffff, metalness: 0.92, roughness: 0.18, envMapIntensity: 1.1,
-});
-const hero = new THREE.Mesh(heroGeom, heroMat);
-hero.castShadow = true;
-hero.receiveShadow = true;
-stage.add(hero);
-
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 20),
-  new THREE.ShadowMaterial({ opacity: 0.4 }),
-);
-floor.rotation.x = -Math.PI / 2;
-floor.position.y = -1;
-floor.receiveShadow = true;
-stage.add(floor);
-
 scene.add(stage);
 
 // ── post-processing (three built-in, r170-compatible) ──────────────────
@@ -352,7 +322,6 @@ composer.addPass(grainPass);
 const state = {
   cameraY:  { current: 1.2, target: 1.2, ease: 0.06 },
   cameraZ:  { current: 6,   target: 6,   ease: 0.06 },
-  heroRotY: { current: 0,   target: 0,   ease: 0.10 },
   mouseX:   { current: 0,   target: 0,   ease: 0.12 },
   mouseY:   { current: 0,   target: 0,   ease: 0.12 },
 };
@@ -385,8 +354,7 @@ gsap.timeline({
   },
 })
 .to(state.cameraY,  { target: -1.5, ease: 'none' }, 0)
-.to(state.cameraZ,  { target:  4,   ease: 'none' }, 0)
-.to(state.heroRotY, { target: Math.PI * 2, ease: 'none' }, 0);
+.to(state.cameraZ,  { target:  4,   ease: 'none' }, 0);
 
 // ── mouse parallax ──────────────────────────────────────────────────────
 window.addEventListener('mousemove', (e) => {
@@ -440,9 +408,6 @@ function tick() {
   camera.position.z = state.cameraZ.current;
   camera.lookAt(0, 0, 0);
 
-  hero.rotation.y = state.heroRotY.current;
-  hero.position.y = Math.sin(t * 0.6) * 0.1;     // gentle hover
-
   // 3. update post uniforms
   grainPass.uniforms.uTime.value = t;
 
@@ -473,11 +438,12 @@ function playIntro() {
   renderer.compile(scene, camera);
   composer.render(0.016);
 
+  // Subtle intro: camera dollies in slightly (no scale pop — needles fade in
+  // naturally because uDensity starts at 0.30, ramps via scroll).
   const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-  tl.from(camera.position, { z: 14, duration: 2.2 }, 0)
-    .from(camera, { fov: 55, duration: 2.2,
-      onUpdate: () => camera.updateProjectionMatrix() }, 0)
-    .from(hero.scale, { x: 0, y: 0, z: 0, duration: 1.4, ease: 'back.out(1.4)' }, 0.25);
+  tl.from(camera.position, { z: -12, duration: 2.4 }, 0)
+    .from(camera, { fov: 60, duration: 2.4,
+      onUpdate: () => camera.updateProjectionMatrix() }, 0);
 }
 
 // ── start ───────────────────────────────────────────────────────────────
